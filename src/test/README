@@ -1,0 +1,8 @@
+All these need to be run with Azure Table credentials in the environment
+
+I suggest a run.sh script:
+#!/bin/sh
+env AZURE_STORAGE_ACCOUNT=account AZURE_STORAGE_ACCESS_KEY='key' node $1
+
+
+testTableContent.js - A quick nodejs scripts to look at the table contents 
