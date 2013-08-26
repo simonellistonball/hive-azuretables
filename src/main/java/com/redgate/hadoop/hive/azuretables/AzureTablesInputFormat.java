@@ -2,6 +2,8 @@ package com.redgate.hadoop.hive.azuretables;
 
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hive.ql.io.HiveInputFormat;
 import org.apache.hadoop.io.MapWritable;
 import org.apache.hadoop.io.Text;
@@ -18,6 +20,9 @@ import org.apache.hadoop.mapred.Reporter;
  * 
  */
 public class AzureTablesInputFormat extends HiveInputFormat<Text, MapWritable> {
+	public static final Log LOG = LogFactory
+			.getLog(AzureTablesInputFormat.class);
+
 	/**
 	 * Sets up a RecordReader for an Azure Table, and build a connection string
 	 * from the table properties.
@@ -26,12 +31,13 @@ public class AzureTablesInputFormat extends HiveInputFormat<Text, MapWritable> {
 	public RecordReader<Text, MapWritable> getRecordReader(InputSplit split,
 			JobConf conf, Reporter reporter) throws IOException {
 		String table = conf.get(ConfigurationUtil.TABLE);
-		String storageConnectionString = String.format(
-				"DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s",
-				conf.get(ConfigurationUtil.ACCOUNT_NAME),
-				conf.get(ConfigurationUtil.ACCESS_KEY));
-
-		return new AzureTablesReader(storageConnectionString, table, split);
+		String accountName = ConfigurationUtil.accountName(conf);
+		String storageConnectionString = ConfigurationUtil
+				.getStorageConnectionString(conf);
+		LOG.info(String.format("Connecting to table %s on account %s", table,
+				accountName));
+		return new AzureTablesRecordReader(storageConnectionString, table,
+				split);
 	}
 
 	/**
@@ -48,9 +54,9 @@ public class AzureTablesInputFormat extends HiveInputFormat<Text, MapWritable> {
 	@Override
 	public InputSplit[] getSplits(JobConf conf, int numSplits)
 			throws IOException {
-		// TODO - need an actually safe way of splitting partition keys
-		String[] partitionKeys = conf.get(ConfigurationUtil.PARTITION_KEYS)
-				.split(",");
+		LOG.info("Partition keys: "
+				+ conf.get(ConfigurationUtil.PARTITION_KEYS));
+		String[] partitionKeys = ConfigurationUtil.partitionKeys(conf);
 		return AzureTablesSplit.getSplits(conf, partitionKeys, numSplits);
 	}
 }

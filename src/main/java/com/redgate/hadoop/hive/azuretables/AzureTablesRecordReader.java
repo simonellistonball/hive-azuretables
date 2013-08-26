@@ -7,8 +7,12 @@ import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.UUID;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.MapWritable;
+import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.RecordReader;
 
@@ -26,9 +30,12 @@ import com.microsoft.windowsazure.services.table.client.TableQuery.QueryComparis
  * @author Simon Elliston Ball <simon@simonellistonball.com>
  * 
  */
-public class AzureTablesReader implements RecordReader<Text, MapWritable> {
+public class AzureTablesRecordReader implements RecordReader<Text, MapWritable> {
+	public static final Log LOG = LogFactory
+			.getLog(AzureTablesRecordReader.class);
 
-	private long pos;
+	private static final String SERIALIZED_NULL = NullWritable.get().toString();
+	private long pos = 0;
 	private Iterator<DynamicTableEntity> results;
 
 	/**
@@ -42,8 +49,8 @@ public class AzureTablesReader implements RecordReader<Text, MapWritable> {
 	 *            definition
 	 * @param split
 	 */
-	public AzureTablesReader(String storageConnectionString, String table,
-			InputSplit split) {
+	public AzureTablesRecordReader(String storageConnectionString,
+			String table, InputSplit split) {
 
 		AzureTablesSplit partitionSplit = (AzureTablesSplit) split;
 
@@ -53,7 +60,8 @@ public class AzureTablesReader implements RecordReader<Text, MapWritable> {
 
 			CloudTableClient tableClient = storageAccount
 					.createCloudTableClient();
-
+			LOG.info(String.format("Connecting to Windows Azure Account: %s",
+					storageAccount));
 			String partitionFilter = TableQuery.generateFilterCondition(
 					TableConstants.PARTITION_KEY, QueryComparisons.EQUAL,
 					partitionSplit.getPartitionKey());
@@ -62,17 +70,15 @@ public class AzureTablesReader implements RecordReader<Text, MapWritable> {
 
 			results = tableClient.execute(partitionQuery).iterator();
 		} catch (InvalidKeyException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOG.error(e.getMessage());
 		} catch (URISyntaxException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOG.error(e.getMessage());
 		}
 	}
 
 	/**
 	 * No need to close anything, since the MS SDK handles that, but good idea
-	 * to remove the resultset
+	 * to remove the result set
 	 */
 	public void close() throws IOException {
 		results = null;
@@ -96,25 +102,40 @@ public class AzureTablesReader implements RecordReader<Text, MapWritable> {
 		key.set(entity.getRowKey());
 		for (Entry<String, EntityProperty> entry : entity.getProperties()
 				.entrySet()) {
-			EntityProperty property = entry.getValue();
-			String field = entry.getKey();
-			value.put(new Text(field), new EntityPropertyWriteable(property));
+
+			final EntityProperty property = entry.getValue();
+			// Note that azure table entity keys are forced to lower case for
+			// matching with hive column names
+			final String propertyKey = entry.getKey().toLowerCase();
+			final String propertyValue = property.getValueAsString();
+			final Writable writableValue = SERIALIZED_NULL
+					.equals(propertyValue) ? NullWritable.get() : new Text(
+					propertyValue);
+			value.put(new Text(propertyKey), writableValue);
 		}
+		pos++;
 		return true;
 	}
 
 	/**
-	 * This generates a GUID that can be used as a key
+	 * This generates a GUID that can be used as a key and converts it to a Text
+	 * object
 	 */
 	public Text createKey() {
 		UUID uid = UUID.randomUUID();
 		return new Text(uid.toString());
 	}
 
+	/**
+	 * Creates an empty map to be used for the object
+	 */
 	public MapWritable createValue() {
 		return new MapWritable();
 	}
 
+	/**
+	 * Returns the current record being processed (zero indexed)
+	 */
 	public long getPos() throws IOException {
 		return this.pos;
 	}

@@ -4,7 +4,7 @@
 
 	<groupId>com.redgate.hadoop</groupId>
 	<artifactId>hive-azuretables</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.1</version>
 	<packaging>jar</packaging>
 
 	<name>hive-azuretables</name>
@@ -40,4 +40,20 @@
 		</dependency>
 	</dependencies>
 	<description>Allows the creation of Hive external tables backed by Azure Table Storage</description>
+
+
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
 </project>
