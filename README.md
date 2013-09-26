@@ -6,15 +6,17 @@ Connector between Hive and Azure Tables.
 This allows you to create EXTERNAL Hive tables which are backed by Azure Storage Tables.
 
 Building
-========
+--------
 
 The project is a simple maven build, so, 
-        maven package 
+
+        mvn package 
+        
 should do the job, and you will find the JAR you need to upload to the cluster in target/
 
 
 Sample Query
-============
+------------
 
 	ADD JAR hive-azuretables-0.0.1.jar;
 
